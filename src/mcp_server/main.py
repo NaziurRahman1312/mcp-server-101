@@ -162,10 +162,14 @@ async def mcp_json_rpc_handler(request: Request):
                     status_code=404
                 )
             
+            # Map stored role to valid MCP message role (only 'user' or 'assistant' allowed)
+            stored_role = prompt.get('role', 'user')
+            mcp_role = 'user' if stored_role in ['user', 'system'] else 'assistant'
+            
             result = {
-                "description": f"{prompt.get('role', '')} prompt",
+                "description": prompt.get('description', f"{stored_role} prompt"),
                 "messages": [{
-                    "role": prompt.get('role', 'user'),
+                    "role": mcp_role,
                     "content": {
                         "type": "text",
                         "text": prompt['content']

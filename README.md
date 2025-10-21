@@ -109,6 +109,33 @@ Supported methods:
 - `PUT /tools/{id}` - Update
 - `DELETE /tools/{id}` - Delete
 
+### Management API Endpoints
+
+**Statistics & Analytics:**
+- `GET /api/stats` - Get comprehensive statistics
+
+**Search & Filter:**
+- `GET /api/search?q={query}&type={type}` - Universal search
+- `GET /api/prompts/filter?role={role}&tag={tag}` - Filter prompts
+- `GET /api/resources/filter?category={category}` - Filter resources
+- `GET /api/tools/filter?tag={tag}` - Filter tools
+
+**Bulk Operations:**
+- `POST /api/prompts/bulk` - Create multiple prompts
+- `POST /api/resources/bulk` - Create multiple resources
+- `POST /api/tools/bulk` - Create multiple tools
+- `DELETE /api/prompts/bulk` - Delete multiple prompts
+- `DELETE /api/resources/bulk` - Delete multiple resources
+- `DELETE /api/tools/bulk` - Delete multiple tools
+
+**Export & Import:**
+- `GET /api/export` - Export all data as JSON
+- `POST /api/import?mode={merge|replace}` - Import data from JSON
+
+**Tags & Categories:**
+- `GET /api/tags` - Get all unique tags
+- `GET /api/categories` - Get all unique categories
+
 ### Utility Endpoints
 
 - `GET /` - Server info
@@ -139,6 +166,22 @@ Your MCP server will appear as "dev-mcp" with access to all your prompts, resour
 
 ## 🧪 Testing
 
+### Quick Demo
+
+Try the interactive demo to see all management features:
+
+```bash
+python scripts/demo_management_api.py
+```
+
+This demo showcases:
+- Statistics and analytics
+- Search functionality
+- Filtering capabilities
+- Bulk operations
+- Data export/import
+- Tag management
+
 ### Test with cURL
 
 ```bash
@@ -164,7 +207,24 @@ curl -X POST http://localhost:8000/prompts \
     "content": "You are a helpful assistant",
     "tags": ["custom"]
   }'
+
+# Management - Get statistics
+curl http://localhost:8000/api/stats
+
+# Management - Search for items
+curl "http://localhost:8000/api/search?q=rabbitmq"
+
+# Management - Filter prompts by role
+curl "http://localhost:8000/api/prompts/filter?role=system"
+
+# Management - Export data
+curl http://localhost:8000/api/export > backup.json
+
+# Management - Get all tags
+curl http://localhost:8000/api/tags
 ```
+
+**📚 Full API Documentation:** See [docs/MANAGEMENT_API.md](docs/MANAGEMENT_API.md) for complete management API documentation with examples.
 
 ## 📊 Data Models
 

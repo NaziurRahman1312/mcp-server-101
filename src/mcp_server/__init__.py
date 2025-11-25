@@ -1,5 +1,5 @@
 """
-MCP Server - HTTP-based Model Context Protocol server
+Smart MCP Server package.
 """
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 

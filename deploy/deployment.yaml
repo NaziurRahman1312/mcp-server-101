@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smart-mcp
+  template:
+    metadata:
+      labels:
+        app: smart-mcp
+    spec:
+      containers:
+        - name: smart-mcp
+          image: ghcr.io/example/smart-mcp:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MCP_DATABASE_URL
+              value: sqlite:////app/data/mcp.db
+            - name: MCP_FAISS_INDEX_PATH
+              value: /app/data/faiss.index
+            - name: MCP_ENVIRONMENT
+              value: production
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: smart-mcp-data
+

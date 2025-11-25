@@ -1,65 +1,97 @@
 """
-Seed data script to populate the database with test data
+Seed data for the Smart MCP server using the new clean architecture stack.
 """
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
-# Add src to path
-src_path = Path(__file__).parent.parent / "src"
-sys.path.insert(0, str(src_path))
+# Ensure src is importable
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT / "src"))
 
-from mcp_server.database import Database
-from datetime import datetime
+from mcp_server.core.config import get_settings
+from mcp_server.domain import models
+from mcp_server.infrastructure.db.sqlite import Base, engine, session_scope
+from mcp_server.infrastructure.repositories.sqlite_repo import (
+    PromptSQLiteRepository,
+    ResourceSQLiteRepository,
+    ToolSQLiteRepository,
+)
+from mcp_server.infrastructure.vector.faiss_store import FaissStore
+from mcp_server.usecases.prompt_service import PromptService
+from mcp_server.usecases.resource_service import ResourceService
+from mcp_server.usecases.tool_service import ToolService
 
 
-def seed_database():
-    """Populate database with seed data"""
-    db = Database()
-    
-    # Clear existing data
-    print("Clearing existing data...")
-    db.clear_all()
-    
-    print("\n🌱 Seeding database with test data...\n")
-    
-    # ===== Seed Prompts =====
-    print("📝 Creating prompts...")
-    
-    prompts = [
-        {
-            "name": "Code Review Assistant",
-            "role": "system",
-            "content": "You are a senior code reviewer. Analyze the provided code for:\n1. Best practices\n2. Potential bugs\n3. Performance issues\n4. Security vulnerabilities\n\nProvide constructive feedback with specific examples.",
-            "tags": ["code-review", "quality"]
-        },
-        {
-            "name": "Documentation Generator",
-            "role": "system",
-            "content": "You are a technical writer. Generate clear, concise documentation for code including:\n- Purpose and overview\n- Function/class descriptions\n- Parameter explanations\n- Usage examples\n- Edge cases",
-            "tags": ["documentation", "technical-writing"]
-        },
-        {
-            "name": "Bug Analyzer",
-            "role": "user",
-            "content": "I'm experiencing a bug where {describe_bug}. Here's the relevant code:\n\n{code_snippet}\n\nCan you help me identify the issue and suggest a fix?",
-            "tags": ["debugging", "troubleshooting"]
-        },
-        {
-            "name": "API Design Consultant",
-            "role": "system",
-            "content": "You are an API design expert. Review API endpoints for:\n- RESTful principles\n- Proper HTTP methods and status codes\n- Clear naming conventions\n- Versioning strategy\n- Error handling\n\nProvide recommendations for improvements.",
-            "tags": ["api", "design", "rest"]
-        }
-    ]
-    
-    for prompt in prompts:
-        created = db.create_prompt(prompt)
-        print(f"  ✓ Created prompt: {created['name']} ({created['id']})")
-    
-    # ===== Seed Resources =====
-    print("\n📚 Creating resources...")
-    
-    resources = [
+def reset_persistence() -> None:
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    settings = get_settings()
+    index_path = Path(settings.faiss_index_path)
+    meta_path = index_path.with_suffix(".meta.json")
+    if index_path.exists():
+        index_path.unlink()
+    if meta_path.exists():
+        meta_path.unlink()
+
+
+def seed_database() -> None:
+    reset_persistence()
+    vector_store = FaissStore()
+
+    with session_scope() as session:
+        prompt_service = PromptService(PromptSQLiteRepository(session))
+        resource_service = ResourceService(ResourceSQLiteRepository(session), vector_store)
+        tool_service = ToolService(ToolSQLiteRepository(session), vector_store)
+
+        print("📝 Seeding prompts...")
+        for payload in PROMPTS:
+            created = prompt_service.create_prompt(models.PromptCreate(**payload))
+            print(f"  • {created.name} ({created.id})")
+
+        print("\n📚 Seeding resources...")
+        for payload in RESOURCES:
+            created = resource_service.create_resource(models.ResourceCreate(**payload))
+            print(f"  • {created.name} ({created.id})")
+
+        print("\n🛠️  Seeding tools...")
+        for payload in TOOLS:
+            created = tool_service.create_tool(models.ToolCreate(**payload))
+            print(f"  • {created.name} ({created.id})")
+
+    print("\n✅ Database and FAISS index seeded successfully!")
+
+
+PROMPTS = [
+    {
+        "name": "Code Review Assistant",
+        "role": "system",
+        "content": "You are a senior code reviewer. Analyze the provided code for:\n1. Best practices\n2. Potential bugs\n3. Performance issues\n4. Security vulnerabilities\n\nProvide constructive feedback with specific examples.",
+        "tags": ["code-review", "quality"],
+    },
+    {
+        "name": "Documentation Generator",
+        "role": "system",
+        "content": "You are a technical writer. Generate clear, concise documentation for code including:\n- Purpose and overview\n- Function/class descriptions\n- Parameter explanations\n- Usage examples\n- Edge cases",
+        "tags": ["documentation", "technical-writing"],
+    },
+    {
+        "name": "Bug Analyzer",
+        "role": "user",
+        "content": "I'm experiencing a bug where {describe_bug}. Here's the relevant code:\n\n{code_snippet}\n\nCan you help me identify the issue and suggest a fix?",
+        "tags": ["debugging", "troubleshooting"],
+    },
+    {
+        "name": "API Design Consultant",
+        "role": "system",
+        "content": "You are an API design expert. Review API endpoints for:\n- RESTful principles\n- Proper HTTP methods and status codes\n- Clear naming conventions\n- Versioning strategy\n- Error handling\n\nProvide recommendations for improvements.",
+        "tags": ["api", "design", "rest"],
+    },
+]
+
+
+RESOURCES = [
         {
             "name": "RabbitMQ Quick Start Guide",
             "description": "Complete guide for setting up and using RabbitMQ in Python applications",
@@ -362,15 +394,8 @@ git cherry-pick <commit-hash>
 """
         }
     ]
-    
-    for resource in resources:
-        created = db.create_resource(resource)
-        print(f"  ✓ Created resource: {created['name']} ({created['id']})")
-    
-    # ===== Seed Tools =====
-    print("\n🛠️  Creating tools...")
-    
-    tools = [
+
+TOOLS = [
         {
             "name": "Database Backup Script",
             "description": "Creates a timestamped backup of PostgreSQL database",
@@ -524,19 +549,9 @@ echo
 echo "Current disk usage:"
 docker system df
 """,
-            "tags": ["docker", "cleanup", "maintenance", "bash"]
+            "tags": ["docker", "cleanup", "maintenance", "bash"],
         }
     ]
-    
-    for tool in tools:
-        created = db.create_tool(tool)
-        print(f"  ✓ Created tool: {created['name']} ({created['id']})")
-    
-    print("\n✅ Database seeded successfully!")
-    print(f"\nSummary:")
-    print(f"  - Prompts: {len(db.get_all_prompts())}")
-    print(f"  - Resources: {len(db.get_all_resources())}")
-    print(f"  - Tools: {len(db.get_all_tools())}")
 
 
 if __name__ == "__main__":
